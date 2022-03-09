@@ -32,6 +32,12 @@ class BrainFollowLine(Brain):
     cv2.destroyAllWindows()
 
   def obtain_function(self, image):
+    image = cv2.resize(image, (60, 60))
+    image = np.array(
+      np.apply_along_axis(lambda x: x if (x <= np.array([255, 10, 10])).all() else [255, 255, 255], 2, image),
+      dtype=np.uint8)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image = cv2.resize(image, (320, 240))
     row_centres = []
     rows = []
     for i in range(image.shape[0]):
@@ -46,7 +52,7 @@ class BrainFollowLine(Brain):
       cv2.circle(imagec, (int(round(p(i))), i), 0, (255, 255, 0), thickness=6)
     cv2.imshow("Stage Camera Image", imagec)
     cv2.waitKey(1)
-    return p
+    return p, image.shape[1]
 
   def step(self):
     # take the last image received from the camera and convert it into
@@ -68,7 +74,7 @@ class BrainFollowLine(Brain):
 
     # determine the robot's deviation from the line.
     try:
-      p = self.obtain_function(imageGray)
+      p, d = self.obtain_function(cv_image)
     except Exception as e:
       print(e)
       print('Line not found')
@@ -77,7 +83,7 @@ class BrainFollowLine(Brain):
     ps = []
     if p is not None:
       for i in range(imageGray.shape[0]):
-        ps.append(p(i) - imageGray.shape[1]/2)
+        ps.append(p(i) - d/2)
 
       mean_err = np.mean(ps)/100
       self.move(abs(1 - min(1, abs(mean_err))), - max(min(4,mean_err*4), -4))
