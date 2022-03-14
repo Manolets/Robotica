@@ -1,6 +1,6 @@
 define box model
 (
-  size [0.5 0.5 0.5]
+  size [0.500 0.500 0.500]
   gui_nose 0
 )
 
@@ -15,7 +15,7 @@ define sonarring ranger
 
   # the visual rep of the ranger
   color "black"
-  size [ 0.05 0.05 0.1 ]
+  size [ 0.050 0.050 0.100 ]
 )
 
 define mycamera camera
@@ -29,12 +29,12 @@ define mycamera camera
 
 define erratic position
 (
-  size [0.35 0.35 0.15]
-  origin [-0.05 0 0 0]
+  size [0.350 0.350 0.150]
+  origin [-0.050 0.000 0.000 0.000]
   gui_nose 1
   drive "diff"
-  sonarring(pose [ 0.050 0.000 0 0.000 ])
-  mycamera(pose [ .10 0 .35 90.0 ])
+  sonarring(pose [ 0.050 0.000 0.000 0.000 ])
+  mycamera(pose [ 0.100 0.000 0.350 90.000 ])
 )
 
 define ground model
@@ -57,8 +57,8 @@ interval_sim 100
 window
 ( 
   size [ 500 500 ]
-  rotate [ 0 0 ]
-  scale 60
+  rotate [ 0.000 -4.500 ]
+  scale 60.000
 )
 
 ground
@@ -68,15 +68,15 @@ ground
   # bitmap "lineBackground-1.png"
   bitmap "lineBackground-2.png"
   # This is the size in metres of the simulation x y z (height)
-  size [7 7 0.001]
-  pose [ 0 0 0 0 ]
+  size [7.000 7.000 0.001]
+  pose [ 0.000 0.000 0.000 0.000 ]
   obstacle_return 0
   laser_return 0
 )
 
-erratic( pose [ -3.3 3.3 0 -40.000 ] name "era" color "blue")
+erratic( pose [ -2.097 2.721 0.000 -19.507 ] name "era" color "blue")
 
 # an example obstacle
-box( pose [ 0 -1 0 0 ] name "box1" color "gray30")
+box( pose [ -1.735 2.447 0.000 60.161 ] name "box1" color "gray30")
 # another example close to the start
 # box( pose [ -0.77 1.57 0 0 ] name "box2" color "gray30")
