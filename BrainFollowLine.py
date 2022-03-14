@@ -82,7 +82,7 @@ class BrainFollowLine(Brain):
         return linePoints, image.shape[1]
 
     def check_and_rebase(self):
-        UMBRAL = 0.5
+        UMBRAL = 0.7
         self.FOLLOWINGSIDE = False  # Si se está siguiendo la 'pared' del objeto
         # TURNINGINITIATED = Si el giro que se va a realizar es el inicial para rebasar un objeto
         # Si hay linea y el giro a realizarse (en caso de girar) es el inicial, no se percibe obstáculo
