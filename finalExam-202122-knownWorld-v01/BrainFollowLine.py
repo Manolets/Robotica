@@ -146,17 +146,15 @@ class BrainFollowLine(Brain):
         # cv2.imwrite("debug-capture.png", cv_image)
 
         # convert the image into grayscale
-        angle = 0
         if self.there_obstacle():
             angle = self.search_obstacle()
-        if angle != 0:
             if abs(angle) < 0.4:
                 forward = 1-abs(angle)
             else:
                 forward = 0
             self.move(forward, angle)
-            print("forward ", forward)
-            print("angle ", angle)
+            #print("forward ", forward)
+            #print("angle ", angle)
             return
 
         if cv_image is not None:
@@ -178,7 +176,7 @@ class BrainFollowLine(Brain):
             return
         ps = []
         if self.p is not None and len(self.p) > 0:  # Should be always True
-            print("moving")
+            #print("moving")
             forward, turn = self.follow_line(imageGray, ps, d)
             self.move(forward, turn)
         else:
