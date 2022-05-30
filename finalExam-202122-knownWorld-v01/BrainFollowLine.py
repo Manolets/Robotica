@@ -1,6 +1,7 @@
 import math
 
 import numpy as np
+import pylab as p
 from pyrobot.brain import Brain
 import Percepcion
 import rospy
@@ -29,6 +30,7 @@ class BrainFollowLine(Brain):
     max_col = 0
     MAX_TURNING_TRIES = 20
     UMBRAL_OR_FLECHA = 10 # Umbral para la orientación de la flecha, ORIENTATIVO
+    UMBRAL_DISTANCIA = 1
 
     FRONT = 0
     NOLINE = False
@@ -59,7 +61,23 @@ class BrainFollowLine(Brain):
     def destroy(self):
         cv2.destroyAllWindows()
 
-    # Obtener función de la línea que seguir
+    def follow_wall(self):
+        print("following wall")
+        left_dis = self.robot.range['left'][0].distance()
+        right_dis = self.robot.range['right'][0].distance()
+        if(left_dis < right_dis):
+            if left_dis < self.UMBRAL_DISTANCIA/2:
+                self.move(self.SLOW_FORWARD, self.HARD_RIGHT)
+            else:
+                self.move(self.SLOW_FORWARD, self.MED_LEFT)
+        else:
+            if right_dis < self.UMBRAL_DISTANCIA/2:
+                self.move(self.SLOW_FORWARD, self.HARD_LEFT)
+            else:
+                self.move(self.SLOW_FORWARD, self.MED_RIGHT)
+
+
+    # Obtener función de laself.find_line() línea que seguir
     def obtain_function(self, image):
         image = cv2.resize(image, (60, 60))
         image = np.array(
@@ -85,103 +103,24 @@ class BrainFollowLine(Brain):
         cv2.waitKey(1)
         return linePoints, image.shape[1]
 
-    def check_and_rebase(self):
-        UMBRAL = 0.7
-        self.FOLLOWINGSIDE = False  # Si se está siguiendo la 'pared' del objeto
-        # TURNINGINITIATED = Si el giro que se va a realizar es el inicial para rebasar un objeto
-        # Si hay linea y el giro a realizarse (en caso de girar) es el inicial, no se percibe obstáculo
-        if not self.NOLINE and self.ORIENTING:
-            return False
+    def there_obstacle(self):
+        for i in range(1, 7):
+            if self.robot.range[i].distance() < self.UMBRAL_DISTANCIA:
+                return True
+        return False
 
-        # Se establece hacia donde girar de haber un obstáculo
-        # Si lo hay en front-left, se gira a la derecha, default izquierda
-        if min([s.distance() for s in
-                self.robot.range['front-left']]) < UMBRAL and self.AVOIDING_FRONT and not self.ORIENTING:
-            self.side = -1
-            self.AVOIDING_FRONT = True
-        elif not self.AVOIDING_FRONT and not self.ORIENTING:  # AVOIDINGFRONT = Si se detecta obstaculo a rebasar
-            self.side = 1
+    def search_obstacle(self):
+        side = {'front-left' : -1, 'front': -1, 'front-right': 1}
 
-        # FASES DE OBSTACULOS
-        # FASE 1: Obstaculo en front: giro hacia el lado contrario al objeto
-        if min([s.distance() for s in self.robot.range['front']]) < UMBRAL:
-            self.move(0, 0.4 * self.side)
-            self.AVOIDING_FRONT = True
-            self.ORIENTING = False
+        angle = [0, 0, 0]
+        for j, i in enumerate(side):
+            min_dis = min([s.distance() for s in self.robot.range[i]])
+            angle[j] = side[i] * max(0, np.cos(90*min_dis/self.UMBRAL_DISTANCIA))
 
-        # FASE 2: Rebsar esquina del objeto
-        elif min([s.distance() for s in self.robot.range['front-' + self.SIDE.get(self.side)]]) < UMBRAL:
-            self.move(0.1, self.side * min(
-                1 / min([s.distance() for s in self.robot.range['front-' + self.SIDE.get(self.side)]]), 1))
-        # FASE 3: mover hacia adelante
-        elif min(
-                [s.distance() for s in self.robot.range[self.SIDE.get(self.side)]]) < UMBRAL and not self.ORIENTING:
-            self.move(0.5, 0)
-            # Si se separe mucho del objeto se pasa al estado de orientación
-            if min([s.distance() for s in self.robot.range[self.SIDE.get(self.side)]]) > UMBRAL:
-                self.ORIENTING = True
-        # FASE 4: REORIENTACION
-        elif min([s.distance() for s in self.robot.range[self.SIDE.get(self.side)]]) > UMBRAL and self.ORIENTING:
-            self.move(0.1, -0.5 * self.side)
-        # FASE 5: Seguimiento de objeto: si todavía no se termina el giro
-        elif self.AVOIDING_FRONT:
-            self.move(0.5, -1 * self.side)
-            self.FOLLOWINGSIDE = True  # Se establece que el rebase se está efectuando
-        # ELSE: No se ha efectuado operacion de rebase de obstáculos
-        else:
-            return False
-        print('STATE: REBASING OBSTACLE')
-        return True
+        return angle[np.argmax(np.abs(angle))]
 
-    # Cambio de dirección de giro
-    def change_turning(self):
-        if self.TURNINGTRIES > self.MAX_TURNING_TRIES:
-            self.reset_turns_count()
-        elif self.FINDINGLINESTATE == 1:
-            self.FINDINGLINESTATE = 2  # LEFT
-        else:
-            self.FINDINGLINESTATE = 1  # DEFAULT = RIGHT
-
-    def reset_turns_count(self):
-        self.TURNINGTRIES = -1
-        self.FINDINGLINESTATE = 0
-
-
-    '''
-    cond = Si no se encuentra la línea o se da que la línea 
-    no está lo suficientemente centrada y con suficientes valores
-    
-    Decide hacia qué lado buscar la línea cuando 
-    se da cond y no se ha conseguido una mejora de cond en la iteración actual
-    return cond
-    '''
-
-    def aproach_line(self):
-        cond = self.NOLINE or (np.max(self.rows) < 220) or len(self.rows) < 100
-        print('log: LINE FOUND = ', not cond)
-        if cond:
-            # Si se visualiza la línea, se no hay mejora en esta iteración, se cambia la dirección de búsqueda
-            if self.NOLINE or np.max(self.rows) > self.last_row and self.max_col < 340 / 2:
-                self.change_turning()
-            elif self.TURNINGTRIES > self.MAX_TURNING_TRIES:
-                self.reset_turns_count()
-            self.find_line()
-        return cond
-
-    def find_line(self):
-        print("STATE: SEARCHING FOR LINE")
-        if self.FINDINGLINESTATE == 0:  # STATE 0 = SEARCH FORWARD
-            self.move(1, 0)
-            self.FINDINGLINESTATE = 1
-        elif self.FINDINGLINESTATE == 1:  # STATE 1 =  INITIAL TURNING DIRECTION
-            self.move(0, 10 * self.side)
-            self.TURNINGTRIES = self.TURNINGTRIES + 1
-            self.FINDINGLINESTATE = 2
-        elif self.FINDINGLINESTATE == 2:  # STATE 2 = OPPOSITE TO INITIAL TURNING DIRECTION
-            self.TURNINGTRIES = self.TURNINGTRIES + 1
-            self.move(0, -10 * self.side)
-        else:
-            self.move(1, 0)
+    def there_wall(self):
+        return self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA or self.robot.range['left'][0].distance() < self.UMBRAL_DISTANCIA
 
     def follow_line(self, imageGray, ps, d):
         # Cálculo de desviación de la línea sobre el centro para establecer parámetro de movimiento
@@ -193,6 +132,7 @@ class BrainFollowLine(Brain):
     def step(self):
         # take the last image received from the camera and convert it into
         # opencv format
+        cv_image = None
         try:
             cv_image = self.bridge.imgmsg_to_cv2(self.rosImage, "bgr8")
         except CvBridgeError as e:
@@ -206,44 +146,42 @@ class BrainFollowLine(Brain):
         # cv2.imwrite("debug-capture.png", cv_image)
 
         # convert the image into grayscale
-        if cv_image:
-            marca, orientacion = self.perceptor.recognize_marcas(cv_image)
+        angle = 0
+        if self.there_obstacle():
+            angle = self.search_obstacle()
+        if angle != 0:
+            if abs(angle) < 0.4:
+                forward = 1-abs(angle)
+            else:
+                forward = 0
+            self.move(forward, angle)
+            #print("forward ", forward)
+            #print("angle ", angle)
+            return
+
+        if cv_image is not None:
+            marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
             print("Marca reconocida: ", marca)
             if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
-                self.move(.5, orientacion)
+                self.move(self.SLOW_FORWARD, orientacion)
                 return
 
         imageGray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
         # determine the robot's deviation from the line.
-
+        d = None
         try:
             self.p, d = self.obtain_function(cv_image)
-        except Exception as e:
-            # SI hay excepción no se encotnró la linea
-            self.p = None
-            self.NOLINE = True
-            if self.check_and_rebase():
-                return
-        # En este punto la línea se conoce
-        if self.NOLINE or (not self.NOLINE and self.FOLLOWINGSIDE):  # Si se ha encontrado la linea
-            print('STATE: FOUND LINE')
-            # Si se ha rebasado el obstáculo
-            if min([s.distance() for s in self.robot.range['front-' + self.SIDE.get(self.side * -1)]]) > 2:
-                self.AVOIDING_FRONT = False
-                self.ORIENTING = False
-            self.aproach_line()
-        self.NOLINE = False
+        except Exception as ignored:
+            if self.there_wall():
+                self.follow_wall()
+            return
         ps = []
-        if self.p is not None:  # Should be always True
+        if self.p is not None and len(self.p) > 0:  # Should be always True
             forward, turn = self.follow_line(imageGray, ps, d)
-            if not self.check_and_rebase():
-                if not self.aproach_line():
-                    self.last_row = 0
-                    print('STATE: FOLLOWING LINE')
-                    self.move(forward, turn)
+            self.move(forward, turn)
         else:
-            self.find_line()
+            print('line lost')
             # exit()
 
 
