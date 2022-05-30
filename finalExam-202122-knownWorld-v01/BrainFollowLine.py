@@ -16,6 +16,8 @@ class BrainFollowLine(Brain):
     MED_FORWARD = 0.5
     FULL_FORWARD = 1.0
     FOLLOWINGSIDE = False
+    REBASING_WALL = None
+    FIND_LINE_STATE = 0
     side = 1
     p = []
 
@@ -67,14 +69,14 @@ class BrainFollowLine(Brain):
         right_dis = self.robot.range['right'][0].distance()
         if(left_dis < right_dis):
             if left_dis < self.UMBRAL_DISTANCIA/2:
-                self.move(self.SLOW_FORWARD, self.HARD_RIGHT)
+                self.move(self.MED_FORWARD, self.HARD_RIGHT)
             else:
-                self.move(self.SLOW_FORWARD, self.MED_LEFT)
+                self.move(self.MED_FORWARD, self.HARD_LEFT)
         else:
             if right_dis < self.UMBRAL_DISTANCIA/2:
-                self.move(self.SLOW_FORWARD, self.HARD_LEFT)
+                self.move(self.MED_FORWARD, self.HARD_LEFT)
             else:
-                self.move(self.SLOW_FORWARD, self.MED_RIGHT)
+                self.move(self.MED_FORWARD, self.HARD_RIGHT)
 
 
     # Obtener función de laself.find_line() línea que seguir
@@ -105,21 +107,41 @@ class BrainFollowLine(Brain):
 
     def there_obstacle(self):
         for i in range(1, 7):
-            if self.robot.range[i].distance() < self.UMBRAL_DISTANCIA:
+            if self.robot.range[i].distance() < self.UMBRAL_DISTANCIA-0.2*self.UMBRAL_DISTANCIA:
                 return True
         return False
 
+    def find_line(self):
+        if self.FIND_LINE_STATE == 0:
+            if self.REBASING_WALL is not None:
+                if self.REBASING_WALL == 'left':
+                    self.move(0, self.HARD_RIGHT)
+                else:
+                    self.move(0, self.MED_RIGHT)
+                self.FIND_LINE_STATE = 1
+        else:
+            self.move(self.FULL_FORWARD, 0)
+            self.FIND_LINE_STATE = 0
+
     def search_obstacle(self):
-        side = {'front-left' : 1, 'front': 1, 'front-right': -1}
-
-        angle = [0, 0, 0]
-        for j, i in enumerate(side):
-            min_dis = min([s.distance() for s in self.robot.range[i]])
-            angle[j] = side[i] * max(0, np.cos(45*min_dis/self.UMBRAL_DISTANCIA))
-
-        return angle[np.argmax(np.abs(angle))]
+        angle = np.zeros(6)
+        min_dis = np.zeros(6)
+        side = 1
+        for i in range(1, 7):
+            if i >= 4:
+                side = -1
+            min_dis[i-1] = self.robot.range[i].distance()
+            angle[i-1] = side *  max(0, np.cos(45 * min_dis[i-1] / self.UMBRAL_DISTANCIA))
+        print(min_dis)
+        return angle[np.argmax(min_dis)]
 
     def there_wall(self):
+        if self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA :
+            if self.REBASING_WALL == None:
+                self.REBASING_WALL = 'right'
+        elif self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA :
+            if self.REBASING_WALL == None:
+                self.REBASING_WALL = 'left'
         return self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA or self.robot.range['left'][0].distance() < self.UMBRAL_DISTANCIA
 
     def follow_line(self, imageGray, ps, d):
@@ -138,25 +160,16 @@ class BrainFollowLine(Brain):
         except CvBridgeError as e:
             print(e)
 
-        # display the robot's camera's image using opencv
-        # cv2.imshow("Stage Camera Image", cv_image)
-        # cv2.waitKey(1)
-
-        # write the image to a file, for debugging etc.
-        # cv2.imwrite("debug-capture.png", cv_image)
-
-        # convert the image into grayscale
         if self.there_obstacle():
             angle = self.search_obstacle()
-            if abs(angle) < 0.4:
+            if abs(angle) < 0.6:
                 forward = 1-abs(angle)
             else:
                 forward = 0
             self.move(forward, angle)
             #print("forward ", forward)
-            #print("angle ", angle)
+            print("angle ", angle)
             return
-
         if cv_image is not None:
             marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
             print("Marca reconocida: ", marca)
@@ -167,20 +180,23 @@ class BrainFollowLine(Brain):
         imageGray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
         # determine the robot's deviation from the line.
-        d = None
         try:
             self.p, d = self.obtain_function(cv_image)
         except Exception as ignored:
             if self.there_wall():
-                pass#self.follow_wall()
+                self.follow_wall()
+            else:
+                self.find_line()
             return
         ps = []
         if self.p is not None and len(self.p) > 0:  # Should be always True
             #print("moving")
             forward, turn = self.follow_line(imageGray, ps, d)
             self.move(forward, turn)
+            self.REBASING_WALL = None
         else:
             print('line lost')
+
             # exit()
 
 
