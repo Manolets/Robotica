@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from pyrobot.brain import Brain
 import Percepcion
@@ -26,6 +28,7 @@ class BrainFollowLine(Brain):
     rows = []
     max_col = 0
     MAX_TURNING_TRIES = 20
+    UMBRAL_OR_FLECHA = 10 # Umbral para la orientación de la flecha, ORIENTATIVO
 
     FRONT = 0
     NOLINE = False
@@ -203,9 +206,17 @@ class BrainFollowLine(Brain):
         # cv2.imwrite("debug-capture.png", cv_image)
 
         # convert the image into grayscale
+        if cv_image:
+            marca, orientacion = self.perceptor.recognize_marcas(cv_image)
+            print("Marca reconocida: ", marca)
+            if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
+                self.move(.5, orientacion)
+                return
+
         imageGray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
         # determine the robot's deviation from the line.
+
         try:
             self.p, d = self.obtain_function(cv_image)
         except Exception as e:
