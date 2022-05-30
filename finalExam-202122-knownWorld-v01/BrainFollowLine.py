@@ -110,12 +110,12 @@ class BrainFollowLine(Brain):
         return False
 
     def search_obstacle(self):
-        side = {'front-left' : -1, 'front': -1, 'front-right': 1}
+        side = {'front-left' : 1, 'front': 1, 'front-right': -1}
 
         angle = [0, 0, 0]
         for j, i in enumerate(side):
             min_dis = min([s.distance() for s in self.robot.range[i]])
-            angle[j] = side[i] * max(0, np.cos(90*min_dis/self.UMBRAL_DISTANCIA))
+            angle[j] = side[i] * max(0, np.cos(45*min_dis/self.UMBRAL_DISTANCIA))
 
         return angle[np.argmax(np.abs(angle))]
 
@@ -155,8 +155,8 @@ class BrainFollowLine(Brain):
             else:
                 forward = 0
             self.move(forward, angle)
-            #print("forward ", forward)
-            #print("angle ", angle)
+            print("forward ", forward)
+            print("angle ", angle)
             return
 
         if cv_image is not None:
@@ -174,10 +174,11 @@ class BrainFollowLine(Brain):
             self.p, d = self.obtain_function(cv_image)
         except Exception as ignored:
             if self.there_wall():
-                self.follow_wall()
+                pass#self.follow_wall()
             return
         ps = []
         if self.p is not None and len(self.p) > 0:  # Should be always True
+            print("moving")
             forward, turn = self.follow_line(imageGray, ps, d)
             self.move(forward, turn)
         else:
