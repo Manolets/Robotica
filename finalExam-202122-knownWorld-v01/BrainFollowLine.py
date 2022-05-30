@@ -193,6 +193,7 @@ class BrainFollowLine(Brain):
     def step(self):
         # take the last image received from the camera and convert it into
         # opencv format
+        cv_image = None
         try:
             cv_image = self.bridge.imgmsg_to_cv2(self.rosImage, "bgr8")
         except CvBridgeError as e:
@@ -206,8 +207,8 @@ class BrainFollowLine(Brain):
         # cv2.imwrite("debug-capture.png", cv_image)
 
         # convert the image into grayscale
-        if cv_image:
-            marca, orientacion = self.perceptor.recognize_marcas(cv_image)
+        if cv_image is not None:
+            marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
             print("Marca reconocida: ", marca)
             if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
                 self.move(.5, orientacion)
@@ -216,10 +217,11 @@ class BrainFollowLine(Brain):
         imageGray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
         # determine the robot's deviation from the line.
-
+        d = None
         try:
             self.p, d = self.obtain_function(cv_image)
         except Exception as e:
+            print(e)
             # SI hay excepción no se encotnró la linea
             self.p = None
             self.NOLINE = True

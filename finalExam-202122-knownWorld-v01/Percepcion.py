@@ -70,9 +70,9 @@ class Percepcion:
             odf.drop(columns=['label'], inplace=True)
             odf = odf.append(data, ignore_index=True)
             predicted = self.clf_marcas.predict(odf)
-            return LABELS[int(predicted)]
+            return LABELS[int(predicted)], 0
         except Exception as ignored:
-            return 'Nothing'
+            return 'Nothing', 0
 
     def analyze_scene(self, image):
         ret = ""
