@@ -14,10 +14,11 @@ class BrainFollowLine(Brain):
     NO_FORWARD = 0
     SLOW_FORWARD = 0.1
     MED_FORWARD = 0.5
-    FULL_FORWARD = 1.0
+    FULL_FORWARD = 0.7
     FOLLOWINGSIDE = False
     REBASING_WALL = None
     FIND_LINE_STATE = 0
+    FOUND_LINE_CERTAINTY = 0
     side = 1
     p = []
 
@@ -115,15 +116,16 @@ class BrainFollowLine(Brain):
         if self.FIND_LINE_STATE == 0:
             if self.REBASING_WALL is not None:
                 if self.REBASING_WALL == 'left':
-                    self.move(0, self.HARD_RIGHT)
+                    self.move(0, self.HARD_LEFT)
                 else:
-                    self.move(0, self.MED_RIGHT)
+                    self.move(0, self.HARD_RIGHT)
                 self.FIND_LINE_STATE = 1
         else:
             self.move(self.FULL_FORWARD, 0)
             self.FIND_LINE_STATE = 0
 
     def search_obstacle(self):
+        self.FOUND_LINE_CERTAINTY = 0
         angle = np.zeros(6)
         min_dis = np.zeros(6)
         side = 1
@@ -132,7 +134,6 @@ class BrainFollowLine(Brain):
                 side = -1
             min_dis[i-1] = self.robot.range[i].distance()
             angle[i-1] = side *  max(0, np.cos(45 * min_dis[i-1] / self.UMBRAL_DISTANCIA))
-        print(min_dis)
         return angle[np.argmax(min_dis)]
 
     def there_wall(self):
@@ -160,7 +161,7 @@ class BrainFollowLine(Brain):
         except CvBridgeError as e:
             print(e)
 
-        if self.there_obstacle():
+        if self.there_obstacle() and self.REBASING_WALL is None:
             angle = self.search_obstacle()
             if abs(angle) < 0.6:
                 forward = 1-abs(angle)
@@ -168,7 +169,6 @@ class BrainFollowLine(Brain):
                 forward = 0
             self.move(forward, angle)
             #print("forward ", forward)
-            print("angle ", angle)
             return
         if cv_image is not None:
             marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
@@ -192,8 +192,10 @@ class BrainFollowLine(Brain):
         if self.p is not None and len(self.p) > 0:  # Should be always True
             #print("moving")
             forward, turn = self.follow_line(imageGray, ps, d)
-            self.move(forward, turn)
-            self.REBASING_WALL = None
+            self.move(1, turn)
+            self.FOUND_LINE_CERTAINTY = self.FOUND_LINE_CERTAINTY + 1
+            if self.FOUND_LINE_CERTAINTY > 5:
+                self.REBASING_WALL = None
         else:
             print('line lost')
 
