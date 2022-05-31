@@ -2,6 +2,9 @@ import cv2
 import joblib
 import numpy as np
 import pandas as pd
+import traceback
+
+from sklearn.decomposition import PCA
 
 LABELS = ['flecha', 'man', 'stair', 'telephone', 'woman']
 COLUMNS = ['area', 'momentx', 'momenty', 'label', 'm00', 'm10', 'm01', 'm20', 'm11', 'm02', 'm30', 'm21', 'm12', 'm03',
@@ -15,6 +18,7 @@ class Percepcion:
     def __init__(self):
         self.clf_segmentation = joblib.load('./models/segmentation_model.jl')
         self.clf_marcas = joblib.load('./models/rec_marcas_model.jl')
+        self.pca = joblib.load('./models/rec_marcas_pca.jl')
 
     def _etiquetar_imagen(self, imagen):
         shape0 = imagen.shape[0]
@@ -61,17 +65,29 @@ class Percepcion:
                 contours = contours[0] if cv2.contourArea(contours[0]) > cv2.contourArea(contours[1]) else contours[1]
             M_1 = cv2.moments(contours[0])
 
-            if M_1["m00"] == 0: M_1["m00", "m01"] = 1
-            x = int(M_1["m10"] / M_1["m00"])
-            y = int(M_1["m01"] / M_1["m00"])
+            # if M_1["m00"] == 0: M_1["m00", "m01"] = 1
+            x = int(M_1["m10"] / (M_1["m00"]+1))
+            y = int(M_1["m01"] / (M_1["m00"]+1))
             data = {'momentx': x, 'momenty': y, 'area': cv2.contourArea(contours[0])}
             data.update(M_1)
+            print("DATA:", data)
             odf = pd.DataFrame(columns=COLUMNS)
-            odf.drop(columns=['label'], inplace=True)
+            odf.drop(columns=['label'], inplace=True, axis=1)
             odf = odf.append(data, ignore_index=True)
+            odf = self.pca.transform(odf)
             predicted = self.clf_marcas.predict(odf)
+            if predicted == 0:
+                angle = ellipse[2]
+                if angle < 0:
+                    turn = 1
+                else:
+                    turn = -1
+                print("Turn: {}".format(turn))
+                return 'flecha', turn
             return LABELS[int(predicted)], 0
         except Exception as ignored:
+            print(ignored)
+            traceback.print_exc()
             return 'Nothing', 0
 
     def analyze_scene(self, image):
