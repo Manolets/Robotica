@@ -61,6 +61,8 @@ class BrainFollowLine(Brain):
         self.robot.range.units = 'ROBOTS'
         self.bridge = CvBridge()
         self.segmented_image = None
+        self.marcas_image = None
+        self.last_preds = np.array([])
 
     def callback(self, data):
         self.rosImage = data
@@ -163,7 +165,7 @@ class BrainFollowLine(Brain):
         cv_image = None
         try:
             cv_image = self.bridge.imgmsg_to_cv2(self.rosImage, "bgr8")
-            self.segmented_image = self.perceptor.procesarimagen(cv_image.copy())
+            self.segmented_image, self.marcas_image = self.perceptor.procesarimagen(cv_image.copy())
         except CvBridgeError as e:
             print(e)
 
@@ -177,11 +179,18 @@ class BrainFollowLine(Brain):
             #print("forward ", forward)
             return
         if cv_image is not None:
-            marca, orientacion = self.perceptor.recognize_marcas(self.segmented_image)
-            print("Marca reconocida: ", marca)
-            marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
-            if marca is not 'Nothing':
-                print("Marca reconocida: ", marca)
+            marca = self.perceptor.predict(self.marcas_image)
+            orientacion = 0
+            if marca != 'nothing':
+                self.last_preds = np.append(self.last_preds, marca)
+                #print("Marca reconocida: ", marca)
+            else:
+                if self.last_preds.size > 0:
+                    unique, pos = np.unique(self.last_preds, return_inverse=True)  # Finds all unique elements and their positions
+                    counts = np.bincount(pos)
+                    maxpos = counts.argmax()
+                    print("Marca reconocida: ", unique[maxpos])
+                    self.last_preds = np.array([])
             if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
                 self.move(self.SLOW_FORWARD, orientacion)
                 return
