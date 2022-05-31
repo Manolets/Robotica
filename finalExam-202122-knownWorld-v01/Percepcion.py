@@ -83,6 +83,15 @@ class Percepcion:
             data = {'momentx': x, 'momenty': y, 'area': cv2.contourArea(contours[0])}
             data.update(M_1)
             # print("DATA:", data)
+            dess_df = pd.DataFrame(columns=['dess', 'label'])
+            if dess is not None:
+                dess_df = dess_df.append({'dess': dess, 'label': 0}, ignore_index=True)
+            lista = []
+            for i in range(len(dess_df)):
+                lista.append(np.unpackbits(dess_df.iloc[i]['dess']))
+            lista = np.array(lista)
+            bbits = pd.DataFrame(lista)
+            bbits['label'] = dess_df['label']
             odf = pd.DataFrame(columns=COLUMNS)
             odf.drop(columns=['label'], inplace=True, axis=1)
             odf = odf.append(data, ignore_index=True)
