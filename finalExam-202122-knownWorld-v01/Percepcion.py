@@ -71,7 +71,6 @@ class Percepcion:
         cv2.imshow("seg", imagen)
         cv2.waitKey(1)
         try:
-            cv2.imwrite('/media/sf_Robotica/practica1Robotica-v4.3/finalExam-202122-knownWorld-v01/temp{}.png'.format(time.process_time_ns()), imagen)
             cv2.imshow('Marcas', imagen)
             cv2.waitKey(1)
             contours, ellipse, lkeyp, dess = self._extract_features(imagen)
