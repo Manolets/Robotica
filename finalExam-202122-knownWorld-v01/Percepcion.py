@@ -10,6 +10,7 @@ LABELS = ['flecha', 'man', 'stair', 'telephone', 'woman']
 COLUMNS = ['area', 'momentx', 'momenty', 'label', 'm00', 'm10', 'm01', 'm20', 'm11', 'm02', 'm30', 'm21', 'm12', 'm03',
            'mu20', 'mu11', 'mu02', 'mu30', 'mu21', 'mu12', 'mu03', 'nu20', 'nu11', 'nu02', 'nu30', 'nu21', 'nu12',
            'nu03']
+UMBRAL_ANGLE = 0.2
 
 class Percepcion:
     """
@@ -17,8 +18,11 @@ class Percepcion:
     """
     def __init__(self):
         self.clf_segmentation = joblib.load('./models/segmentation_model.jl')
-        self.clf_marcas = joblib.load('./models/rec_marcas_model.jl')
+        self.clf_marcas = joblib.load('models/rec_marcas_model.jl')
+        self.clf_flechas = joblib.load('models/rec_flechas_model.jl')
         self.pca = joblib.load('./models/rec_marcas_pca.jl')
+        self.prediction_history_flechas = []
+        self.prediction_history_marcas = []
 
     def _etiquetar_imagen(self, imagen):
         shape0 = imagen.shape[0]
@@ -74,17 +78,21 @@ class Percepcion:
             odf = pd.DataFrame(columns=COLUMNS)
             odf.drop(columns=['label'], inplace=True, axis=1)
             odf = odf.append(data, ignore_index=True)
-            odf = self.pca.transform(odf)
-            predicted = self.clf_marcas.predict(odf)
+            pred_marcas = self.clf_marcas.predict(odf)
+            pca = self.pca.transform(odf)
+            predicted = self.clf_flechas.predict(pca)
             if predicted == 0:
                 angle = ellipse[2]
-                if angle < 0:
+                if angle < -UMBRAL_ANGLE:
                     turn = 1
-                else:
+                elif angle > UMBRAL_ANGLE:
                     turn = -1
+                else:
+                    turn = 0
                 print("Turn: {}".format(turn))
                 return 'flecha', turn
-            return LABELS[int(predicted)], 0
+            return LABELS[int(pred_marcas)], 0
+
         except Exception as ignored:
             print(ignored)
             traceback.print_exc()

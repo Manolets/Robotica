@@ -32,7 +32,7 @@ class BrainFollowLine(Brain):
     rows = []
     max_col = 0
     MAX_TURNING_TRIES = 20
-    UMBRAL_OR_FLECHA = 10 # Umbral para la orientación de la flecha, ORIENTATIVO
+    UMBRAL_OR_FLECHA = 0.2 # Umbral para la orientación de la flecha, ORIENTATIVO
     UMBRAL_DISTANCIA = 1
 
     FRONT = 0
