@@ -1,3 +1,5 @@
+import time
+
 import cv2
 import joblib
 import numpy as np
@@ -11,6 +13,7 @@ COLUMNS = ['area', 'momentx', 'momenty', 'label', 'm00', 'm10', 'm01', 'm20', 'm
            'mu20', 'mu11', 'mu02', 'mu30', 'mu21', 'mu12', 'mu03', 'nu20', 'nu11', 'nu02', 'nu30', 'nu21', 'nu12',
            'nu03']
 UMBRAL_ANGLE = 0.4
+
 
 class Percepcion:
     """
@@ -68,6 +71,9 @@ class Percepcion:
         cv2.imshow("seg", imagen)
         cv2.waitKey(1)
         try:
+            cv2.imwrite('/media/sf_Robotica/practica1Robotica-v4.3/finalExam-202122-knownWorld-v01/temp{}.png'.format(time.process_time_ns()), imagen)
+            cv2.imshow('Marcas', imagen)
+            cv2.waitKey(1)
             contours, ellipse, lkeyp, dess = self._extract_features(imagen)
             if len(contours) != 1:
                 contours = contours[0] if cv2.contourArea(contours[0]) > cv2.contourArea(contours[1]) else contours[1]
@@ -102,6 +108,10 @@ class Percepcion:
         except Exception as e:
             print(e)
             #traceback.print_exc()
+            return LABELS[int(predicted)], 0
+        except Exception as ignored:
+            # print(ignored)
+            traceback.print_exc()
             return 'Nothing', 0
 
     def analyze_scene(self, image):

@@ -8,6 +8,7 @@ import rospy
 import cv2
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+import traceback
 
 
 class BrainFollowLine(Brain):
@@ -18,6 +19,7 @@ class BrainFollowLine(Brain):
     NORMAL_FORWARD = 0.4
     FOLLOWINGSIDE = False
     REBASING_WALL = None
+    LAST_SEEN_WALL = None
     FIND_LINE_STATE = 0
     FOUND_LINE_CERTAINTY = 0
     side = 1
@@ -141,9 +143,11 @@ class BrainFollowLine(Brain):
         if self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA :
             if self.REBASING_WALL == None:
                 self.REBASING_WALL = 'right'
+                self.LAST_SEEN_WALL = 'right'
         elif self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA :
             if self.REBASING_WALL == None:
                 self.REBASING_WALL = 'left'
+                self.LAST_SEEN_WALL = 'left'
         return self.robot.range['right'][0].distance() < self.UMBRAL_DISTANCIA or self.robot.range['left'][0].distance() < self.UMBRAL_DISTANCIA
 
     def follow_line(self, imageGray, ps, d):
@@ -175,6 +179,9 @@ class BrainFollowLine(Brain):
         if cv_image is not None:
             marca, orientacion = self.perceptor.recognize_marcas(self.segmented_image)
             print("Marca reconocida: ", marca)
+            marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
+            if marca is not 'Nothing':
+                print("Marca reconocida: ", marca)
             if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
                 self.move(self.SLOW_FORWARD, orientacion)
                 return
@@ -188,7 +195,9 @@ class BrainFollowLine(Brain):
             if self.there_wall():
                 self.follow_wall()
             else:
-                self.find_line()
+                angle = self.MED_RIGHT if self.LAST_SEEN_WALL == 'right' else self.MED_LEFT
+                self.move(self.MED_FORWARD, angle)
+
             return
         ps = []
         if self.p is not None and len(self.p) > 0:  # Should be always True
@@ -198,8 +207,12 @@ class BrainFollowLine(Brain):
             self.FOUND_LINE_CERTAINTY = self.FOUND_LINE_CERTAINTY + 1
             if self.FOUND_LINE_CERTAINTY > 5:
                 self.REBASING_WALL = None
+            return
         else:
             print('line lost')
+        angle =  self.MED_RIGHT if self.LAST_SEEN_WALL == 'right' else self.MED_LEFT
+        self.move(self.SLOW_FORWARD, angle)
+        print("Last seen wall: ", self.LAST_SEEN_WALL)
 
             # exit()
 
