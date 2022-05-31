@@ -15,6 +15,7 @@ class BrainFollowLine(Brain):
     SLOW_FORWARD = 0.1
     MED_FORWARD = 0.5
     FULL_FORWARD = 0.7
+    NORMAL_FORWARD = 0.4
     FOLLOWINGSIDE = False
     REBASING_WALL = None
     FIND_LINE_STATE = 0
@@ -32,7 +33,7 @@ class BrainFollowLine(Brain):
     rows = []
     max_col = 0
     MAX_TURNING_TRIES = 20
-    UMBRAL_OR_FLECHA = 0.2 # Umbral para la orientación de la flecha, ORIENTATIVO
+    UMBRAL_OR_FLECHA = 0.4 # Umbral para la orientación de la flecha, ORIENTATIVO
     UMBRAL_DISTANCIA = 1
 
     FRONT = 0
@@ -57,6 +58,7 @@ class BrainFollowLine(Brain):
         self.image_sub = rospy.Subscriber("/image", Image, self.callback)
         self.robot.range.units = 'ROBOTS'
         self.bridge = CvBridge()
+        self.segmented_image = None
 
     def callback(self, data):
         self.rosImage = data
@@ -84,7 +86,7 @@ class BrainFollowLine(Brain):
     def obtain_function(self, image):
         image = cv2.resize(image, (60, 60))
         image = np.array(
-            np.apply_along_axis(lambda x: x if (x <= np.array([255, 10, 10])).all() else [255, 255, 255], 2, image),
+            np.apply_along_axis(lambda x: x if (x == np.array([255, 0, 0])).all() else [255, 255, 255], 2, image),
             dtype=np.uint8)
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         image = cv2.resize(image, (320, 240))
@@ -95,7 +97,6 @@ class BrainFollowLine(Brain):
                 rowcentre = np.median(np.argwhere(image[i] < 100))
                 row_centres.append(rowcentre)
                 self.rows.append(i)
-
         imagec = cv2.cvtColor(image, cv2.COLOR_BAYER_BG2BGR)
         pesos = np.arange(len(row_centres))
         linePoints = np.poly1d(np.lib.polynomial.polyfit(self.rows, row_centres, 2, w=pesos))
@@ -158,6 +159,7 @@ class BrainFollowLine(Brain):
         cv_image = None
         try:
             cv_image = self.bridge.imgmsg_to_cv2(self.rosImage, "bgr8")
+            self.segmented_image = self.perceptor.procesarimagen(cv_image.copy())
         except CvBridgeError as e:
             print(e)
 
@@ -171,7 +173,7 @@ class BrainFollowLine(Brain):
             #print("forward ", forward)
             return
         if cv_image is not None:
-            marca, orientacion = self.perceptor.recognize_marcas(cv_image.copy())
+            marca, orientacion = self.perceptor.recognize_marcas(self.segmented_image)
             print("Marca reconocida: ", marca)
             if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
                 self.move(self.SLOW_FORWARD, orientacion)
@@ -192,7 +194,7 @@ class BrainFollowLine(Brain):
         if self.p is not None and len(self.p) > 0:  # Should be always True
             #print("moving")
             forward, turn = self.follow_line(imageGray, ps, d)
-            self.move(1, turn)
+            self.move(self.NORMAL_FORWARD, turn)
             self.FOUND_LINE_CERTAINTY = self.FOUND_LINE_CERTAINTY + 1
             if self.FOUND_LINE_CERTAINTY > 5:
                 self.REBASING_WALL = None

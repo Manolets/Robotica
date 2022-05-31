@@ -10,7 +10,7 @@ LABELS = ['flecha', 'man', 'stair', 'telephone', 'woman']
 COLUMNS = ['area', 'momentx', 'momenty', 'label', 'm00', 'm10', 'm01', 'm20', 'm11', 'm02', 'm30', 'm21', 'm12', 'm03',
            'mu20', 'mu11', 'mu02', 'mu30', 'mu21', 'mu12', 'mu03', 'nu20', 'nu11', 'nu02', 'nu30', 'nu21', 'nu12',
            'nu03']
-UMBRAL_ANGLE = 0.2
+UMBRAL_ANGLE = 0.4
 
 class Percepcion:
     """
@@ -28,14 +28,15 @@ class Percepcion:
         shape0 = imagen.shape[0]
         shape1 = imagen.shape[1]
         img = imagen.reshape(imagen.shape[0] * imagen.shape[1], 2)
-        predictions = self.clf_segmentation.predict(img)
+        df = pd.DataFrame(data=img, columns=['h', 's'])
+        predictions = self.clf_segmentation.predict(df)
         return predictions.reshape(shape0, shape1)
 
     def _pintar_prediccion(self, prediccion):
         paint = np.zeros((prediccion.shape[0], prediccion.shape[1], 3))
         paint[np.where(prediccion == 0)] = [255, 0, 0]
         paint[np.where(prediccion == 1)] = [0, 0, 255]
-        paint[np.where(prediccion == 2)] = [0, 255, 0]
+        paint[np.where(prediccion == 2)] = [255, 255, 255]
         return paint
 
     def _extract_features(self, img):
@@ -61,27 +62,30 @@ class Percepcion:
         return self._pintar_prediccion(pred)
 
     def recognize_marcas(self, imagen):
-        maskframe = cv2.inRange(imagen, (0, 0, 100), (50, 50, 255))
-        imagen[maskframe == 0] = [255, 255, 255]
+        imagen = imagen.astype(np.uint8)
+        #maskframe = cv2.inRange(imagen, (0, 0, 100), (50, 50, 255))
+        #imagen[maskframe == 0] = [255, 255, 255]
+        cv2.imshow("seg", imagen)
+        cv2.waitKey(1)
         try:
             contours, ellipse, lkeyp, dess = self._extract_features(imagen)
             if len(contours) != 1:
                 contours = contours[0] if cv2.contourArea(contours[0]) > cv2.contourArea(contours[1]) else contours[1]
             M_1 = cv2.moments(contours[0])
-
             # if M_1["m00"] == 0: M_1["m00", "m01"] = 1
             x = int(M_1["m10"] / (M_1["m00"]+1))
             y = int(M_1["m01"] / (M_1["m00"]+1))
             data = {'momentx': x, 'momenty': y, 'area': cv2.contourArea(contours[0])}
             data.update(M_1)
-            print("DATA:", data)
+            # print("DATA:", data)
             odf = pd.DataFrame(columns=COLUMNS)
             odf.drop(columns=['label'], inplace=True, axis=1)
             odf = odf.append(data, ignore_index=True)
             pred_marcas = self.clf_marcas.predict(odf)
             pca = self.pca.transform(odf)
             predicted = self.clf_flechas.predict(pca)
-            if predicted == 0:
+
+            if pred_marcas == 0:
                 angle = ellipse[2]
                 if angle < -UMBRAL_ANGLE:
                     turn = 1
@@ -93,9 +97,11 @@ class Percepcion:
                 return 'flecha', turn
             return LABELS[int(pred_marcas)], 0
 
-        except Exception as ignored:
-            print(ignored)
-            traceback.print_exc()
+        except IndexError as ignored:
+            return 'Nothing', 0
+        except Exception as e:
+            print(e)
+            #traceback.print_exc()
             return 'Nothing', 0
 
     def analyze_scene(self, image):
