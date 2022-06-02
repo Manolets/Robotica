@@ -3,6 +3,7 @@ import time
 import cv2
 import joblib
 import numpy as np
+import threading
 
 LABELS = ['flecha', 'man', 'stair', 'telephone', 'woman']
 COLUMNS = ['area', 'momentx', 'momenty', 'label', 'm00', 'm10', 'm01', 'm20', 'm11', 'm02', 'm30', 'm21', 'm12', 'm03',
@@ -19,8 +20,7 @@ class Percepcion:
     """
 
     def __init__(self):
-        self.clf_segmentation = joblib.load('./models/segmentation_model.jl')
-        self.pca = joblib.load('./models/rec_marcas_pca.jl')
+        threading.Thread(target=self.load_model).start()
         self.woman = []
         self.man = []
         self.telephone = []
@@ -56,6 +56,9 @@ class Percepcion:
         paint[np.where(prediccion == 1)] = [0, 0, 255]
         paint[np.where(prediccion == 2)] = [255, 255, 255]
         return paint.astype(np.uint8)
+
+    def load_model(self):
+        self.clf_segmentation = joblib.load('./models/segmentation_model.jl')
 
     def load_ref_images(self):
         self.woman = [
