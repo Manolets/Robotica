@@ -21,6 +21,7 @@ class Percepcion:
 
     def __init__(self):
         threading.Thread(target=self.load_model).start()
+        self.clf_segmentation = None
         self.woman = []
         self.man = []
         self.telephone = []
@@ -31,8 +32,6 @@ class Percepcion:
         self.flechas_orb = []
         self.telephone_orb = []
         self.stairs_orb = []
-        self.load_ref_images()
-        self.load_reference_descriptors()
         self.prediction_history_flechas = []
         self.prediction_history_marcas = []
 
@@ -59,6 +58,8 @@ class Percepcion:
 
     def load_model(self):
         self.clf_segmentation = joblib.load('./models/segmentation_model.jl')
+        self.load_ref_images()
+        self.load_reference_descriptors()
 
     def load_ref_images(self):
         self.woman = [
