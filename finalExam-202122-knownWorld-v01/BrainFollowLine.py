@@ -37,6 +37,9 @@ class BrainFollowLine(Brain):
     MAX_TURNING_TRIES = 20
     UMBRAL_OR_FLECHA = 0.4 # Umbral para la orientación de la flecha, ORIENTATIVO
     UMBRAL_DISTANCIA = 1
+    HAS_TO_TURN = False
+    DIR_OF_TURN = 0
+    NTURNS = 30
 
     FRONT = 0
     NOLINE = False
@@ -71,7 +74,6 @@ class BrainFollowLine(Brain):
         cv2.destroyAllWindows()
 
     def follow_wall(self):
-        print("following wall")
         left_dis = self.robot.range['left'][0].distance()
         right_dis = self.robot.range['right'][0].distance()
         if(left_dis < right_dis):
@@ -179,8 +181,14 @@ class BrainFollowLine(Brain):
             #print("forward ", forward)
             return
         if cv_image is not None:
-            marca = self.perceptor.predict(self.marcas_image)
+            marca, centre, angle, carbonara = self.perceptor.predict(self.marcas_image)
             orientacion = 0
+            if angle >45 and angle <135:
+                self.HAS_TO_TURN = True
+                self.DIR_OF_TURN = carbonara
+                print("HAS TO TURN")
+            elif angle >135 and angle <225:
+                orientacion = 0
             if marca != 'nothing':
                 self.last_preds = np.append(self.last_preds, marca)
                 #print("Marca reconocida: ", marca)
@@ -190,10 +198,19 @@ class BrainFollowLine(Brain):
                     counts = np.bincount(pos)
                     maxpos = counts.argmax()
                     print("Marca reconocida: ", unique[maxpos])
-                    self.last_preds = np.array([])
-            if marca == 'flecha' and abs(orientacion) > self.UMBRAL_OR_FLECHA:
-                self.move(self.SLOW_FORWARD, orientacion)
+                    if marca != 'flecha':
+                        self.last_preds = np.array([])
+
+            if marca == 'flecha' and self.HAS_TO_TURN and self.NTURNS > 0:
+                print("TURNING", self.DIR_OF_TURN, self.NTURNS)
+                self.move(0, self.DIR_OF_TURN)
+                self.NTURNS -= 1
                 return
+            elif self.NTURNS == 0:
+                self.NTURNS = 30
+                self.HAS_TO_TURN = False
+                self.DIR_OF_TURN = None
+                self.last_preds = np.array([])
 
         imageGray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
