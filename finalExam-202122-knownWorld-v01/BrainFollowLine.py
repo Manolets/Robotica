@@ -16,7 +16,7 @@ class BrainFollowLine(Brain):
     SLOW_FORWARD = 0.1
     MED_FORWARD = 0.5
     FULL_FORWARD = 0.7
-    NORMAL_FORWARD = 0.4
+    NORMAL_FORWARD = 1
     FOLLOWINGSIDE = False
     REBASING_WALL = None
     LAST_SEEN_WALL = None
