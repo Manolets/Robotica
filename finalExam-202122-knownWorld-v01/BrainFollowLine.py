@@ -38,8 +38,11 @@ class BrainFollowLine(Brain):
     UMBRAL_OR_FLECHA = 0.4 # Umbral para la orientación de la flecha, ORIENTATIVO
     UMBRAL_DISTANCIA = 1
     HAS_TO_TURN = False
+    HORIZONTAL_ARROW = False
     DIR_OF_TURN = 0
-    NTURNS = 30
+    NTURNS = 10
+    JUST_TURNED = False
+    TURNED_STEPS_AGO = 5
 
     FRONT = 0
     NOLINE = False
@@ -184,8 +187,9 @@ class BrainFollowLine(Brain):
             marca, centre, angle, carbonara = self.perceptor.predict(self.marcas_image)
             orientacion = 0
             if angle >45 and angle <135:
-                self.HAS_TO_TURN = True
                 self.DIR_OF_TURN = carbonara
+                self.HORIZONTAL_ARROW = True
+
                 print("HAS TO TURN")
             elif angle >135 and angle <225:
                 orientacion = 0
@@ -198,19 +202,30 @@ class BrainFollowLine(Brain):
                     counts = np.bincount(pos)
                     maxpos = counts.argmax()
                     print("Marca reconocida: ", unique[maxpos])
+                    if unique[maxpos] == 'flecha' and self.HORIZONTAL_ARROW:
+                        self.HORIZONTAL_ARROW = False
+                        self.HAS_TO_TURN = True
                     if marca != 'flecha':
                         self.last_preds = np.array([])
 
-            if marca == 'flecha' and self.HAS_TO_TURN and self.NTURNS > 0:
+            if self.HAS_TO_TURN and self.NTURNS > 0:
                 print("TURNING", self.DIR_OF_TURN, self.NTURNS)
                 self.move(0, self.DIR_OF_TURN)
                 self.NTURNS -= 1
                 return
             elif self.NTURNS == 0:
-                self.NTURNS = 30
+                self.JUST_TURNED = True
+                self.NTURNS = 10
                 self.HAS_TO_TURN = False
                 self.DIR_OF_TURN = None
                 self.last_preds = np.array([])
+            if self.JUST_TURNED and self.TURNED_STEPS_AGO > 0:
+                self.move(self.FULL_FORWARD, 0)
+                self.TURNED_STEPS_AGO -= 1
+                return
+            if self.TURNED_STEPS_AGO == 0:
+                self.TURNED_STEPS_AGO = 5
+                self.JUST_TURNED = False
 
         imageGray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
 
