@@ -16,7 +16,7 @@ class BrainFollowLine(Brain):
     SLOW_FORWARD = 0.1
     MED_FORWARD = 0.5
     FULL_FORWARD = 0.7
-    NORMAL_FORWARD = 1
+    NORMAL_FORWARD = 0.6
     FOLLOWINGSIDE = False
     REBASING_WALL = None
     LAST_SEEN_WALL = None
@@ -189,8 +189,6 @@ class BrainFollowLine(Brain):
             if angle >45 and angle <135:
                 self.DIR_OF_TURN = carbonara
                 self.HORIZONTAL_ARROW = True
-
-                print("HAS TO TURN")
             elif angle >135 and angle <225:
                 orientacion = 0
             if marca != 'nothing':
@@ -209,7 +207,6 @@ class BrainFollowLine(Brain):
                         self.last_preds = np.array([])
 
             if self.HAS_TO_TURN and self.NTURNS > 0:
-                print("TURNING", self.DIR_OF_TURN, self.NTURNS)
                 self.move(0, self.DIR_OF_TURN)
                 self.NTURNS -= 1
                 return
@@ -252,8 +249,7 @@ class BrainFollowLine(Brain):
         else:
             print('line lost')
         angle =  self.MED_RIGHT if self.LAST_SEEN_WALL == 'right' else self.MED_LEFT
-        self.move(self.SLOW_FORWARD, angle)
-        print("Last seen wall: ", self.LAST_SEEN_WALL)
+        self.move(self.SLOW_FORWARD, angle * 0.7)
 
             # exit()
 
